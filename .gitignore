@@ -1,0 +1,9 @@
+.DS_Store
+.venv
+node_modules
+public/data
+uv.lock
+package-lock.json
+.env
+.wrangler/
+*.pyc

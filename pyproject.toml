@@ -1,0 +1,23 @@
+[project]
+name = "indus"
+version = "0.1.0"
+description = "Virtual env for Indus visualisation"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "openai>=1.93.0",
+    "pytesseract>=0.3.13",
+    "requests>=2.32.4",
+]
+
+[tool.pytest.ini_options]
+pythonpath = [
+    ".",
+]
+testpaths = [
+]
+
+[dependency-groups]
+dev = [
+    "ipykernel>=6.29.5",
+]
