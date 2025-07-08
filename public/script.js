@@ -1,9 +1,275 @@
 // Main JavaScript code
+
+
+
 document.addEventListener('DOMContentLoaded', function() {
+
+    // Define classes
+    class Reservoir {
+        constructor(name, level_min_ft, level_max_ft, current_level_ft, x, y, radius) {
+            this.name = name;
+            this.level_min_ft = level_min_ft;
+            this.level_max_ft = level_max_ft;
+            this.current_level_ft = current_level_ft;
+            this.x = x;
+            this.y = y;
+            this.radius = radius;
+        }
+        
+        /**
+         * Draw this reservoir with animated wavy water
+         */
+        draw() {
+            // Calculate the relative water level (0 to 1)
+            const levelPercentage = (this.current_level_ft - this.level_min_ft) / (this.level_max_ft - this.level_min_ft);
+            
+            // Draw reservoir container (circle)
+            ctx.fillStyle = '#d4d4d4'; // Light gray for container
+            ctx.strokeStyle = '#666';
+            ctx.lineWidth = 2;
+            
+            // Draw circle for reservoir
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+            
+            // Draw water in reservoir with wavy top
+            this.drawCircularWater(levelPercentage);
+            
+            // Draw reservoir name
+            ctx.fillStyle = '#000';
+            ctx.font = 'bold 16px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText(this.name, this.x, this.y - this.radius - 15);
+            
+            // Draw percentage
+            ctx.textAlign = 'center';
+            ctx.fillStyle = '#0066cc';
+            ctx.font = 'bold 18px Arial';
+            ctx.fillText(`${Math.round(levelPercentage * 100)}%`, this.x, this.y);
+        }
+        
+        /**
+         * Draw water with wavy top in the circular reservoir
+         * @param {number} fillPercentage - Water fill percentage (0-1)
+         */
+        drawCircularWater(fillPercentage) {
+            ctx.fillStyle = '#4d94ff'; // Water blue color
+            
+            // Calculate the water level position
+            // For a circle, we need to convert percentage to a y-position
+            // 0% = bottom of circle (y + radius)
+            // 100% = top of circle (y - radius)
+            
+            // Calculate the y position based on percentage (0 to 1)
+            // This maps the percentage to a position in the circle
+            const waterLevel = this.y + this.radius - (2 * this.radius * fillPercentage);
+            
+            // Only proceed if water level is within the circle
+            if (waterLevel >= this.y + this.radius) return; // Empty
+            if (waterLevel <= this.y - this.radius) {
+                // Full circle
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fill();
+                return;
+            }
+            
+            // Calculate chord width at the water level
+            const chordWidth = 2 * Math.sqrt(this.radius * this.radius - Math.pow(waterLevel - this.y, 2));
+            const halfChordWidth = chordWidth / 2;
+            
+            ctx.beginPath();
+            
+            // Draw the bottom part of the circle (the filled part)
+            const startAngle = Math.asin((waterLevel - this.y) / this.radius);
+            const endAngle = Math.PI - Math.asin((waterLevel - this.y) / this.radius);        
+            ctx.arc(this.x, this.y, this.radius, startAngle, endAngle);
+            
+            // Wavy water surface (left to right)
+            const waveHeight = 4;
+            const waveCount = 6;
+            const waveWidth = chordWidth / waveCount;
+            
+            // Starting point for waves (leftmost point of the chord)
+            const startX = this.x - halfChordWidth;
+            
+            // Create wavy water surface
+            ctx.lineTo(startX, waterLevel);
+            
+            for (let i = 0; i < waveCount; i++) {
+                const waveX = startX + (i * waveWidth);
+                const nextWaveX = startX + ((i + 1) * waveWidth);
+                
+                // Calculate wave offset based on time for animation
+                const offset = Math.sin(time + i) * waveHeight;
+                
+                // Draw a wave segment
+                ctx.quadraticCurveTo(
+                    waveX + waveWidth/2, waterLevel + offset,
+                    nextWaveX, waterLevel
+                );
+            }
+            
+            ctx.closePath();
+            ctx.fill();
+        }
+    }
+
+    class Node {
+        constructor(name, x, y, radius = 20, hasLabel = false) {
+            this.name = name;
+            this.x = x;
+            this.y = y;
+            this.radius = radius;
+            this.hasLabel = hasLabel;
+        }
+
+        // Draw as grey cicle ()
+        draw() {
+            // Draw node (circle)
+            ctx.fillStyle = '#d4d4d4'; // Light gray for container
+            ctx.strokeStyle = '#666';
+            ctx.lineWidth = 2;
+            
+            // Draw node outline
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+
+            // Draw node label
+            if (this.hasLabel) {
+                ctx.fillStyle = '#000';
+                ctx.font = '12px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(this.name, this.x, this.y + this.radius + 20);
+            }
+        }
+    }
+
+    class Flow {
+        constructor(
+            name,
+            sourceNode,
+            destinationNode,
+            flowRate,
+            hasLabel = false
+        ) {
+            this.name = name;
+            this.sourceNode = sourceNode;
+            this.destinationNode = destinationNode;
+            this.flowRate = flowRate;
+            this.hasLabel = hasLabel;
+        }
+
+        draw() {
+            // Draw flow as a line with particles
+            const flowWidth = Math.max(
+                MIN_FLOW_WIDTH, 
+                Math.min(MAX_FLOW_WIDTH, (this.flowRate / MAX_FLOW_SIZE) * MAX_FLOW_WIDTH)
+            );
+            
+            // Calculate start and end points of the flow (from center to center)
+            const startX = this.sourceNode.x;
+            const startY = this.sourceNode.y;
+            const endX = this.destinationNode.x;
+            const endY = this.destinationNode.y;
+            
+            // Calculate angle between nodes for particle animation
+            const dx = endX - startX;
+            const dy = endY - startY;
+            const angle = Math.atan2(dy, dx);
+            
+            // Draw the flow channel
+            ctx.beginPath();
+            ctx.moveTo(startX, startY);
+            ctx.lineTo(endX, endY);
+            ctx.strokeStyle = '#4d94ff80'; // Semi-transparent blue
+            ctx.lineWidth = flowWidth;
+            ctx.lineCap = 'round';
+            ctx.stroke();
+            
+            // Draw animated flow particles
+            this.drawFlowParticles(startX, startY, endX, endY, flowWidth, angle);
+            
+            // Draw flow label if provided
+            if (this.hasLabel) {
+                const labelX = startX + (endX - startX) / 2;
+                const labelY = startY + (endY - startY) / 2 - 15;
+                
+                ctx.fillStyle = '#0066cc';
+                ctx.font = '12px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(`${this.name}: ${this.flowRate} cusecs`, labelX, labelY);
+            }
+        }
+        
+        /**
+         * Draw animated particles along a flow path
+         * @param {number} startX - Start X coordinate
+         * @param {number} startY - Start Y coordinate
+         * @param {number} endX - End X coordinate
+         * @param {number} endY - End Y coordinate
+         * @param {number} width - Width of the flow
+         * @param {number} angle - Angle of the flow
+         */
+        drawFlowParticles(startX, startY, endX, endY, width, angle) {
+            // Calculate flow parameters
+            const flowLength = Math.sqrt(Math.pow(endX - startX, 2) + Math.pow(endY - startY, 2));
+            const normalizedFlowRate = this.flowRate / MAX_FLOW_SIZE;
+            
+            // Calculate number of particles based on flow rate and density
+            const particleCount = Math.ceil(flowLength * FLOW_PARTICLE_DENSITY * normalizedFlowRate);
+            
+            // Calculate particle speed based on flow rate
+            const particleSpeed = FLOW_SPEED * normalizedFlowRate;
+            
+            // Draw particles
+            for (let i = 0; i < particleCount; i++) {
+                // Calculate position along the flow line (0 to 1)
+                let position = ((time * particleSpeed) + (i / particleCount)) % 1;
+                
+                // Calculate particle position
+                const x = startX + (endX - startX) * position;
+                const y = startY + (endY - startY) * position;
+                
+                // Calculate particle size based on flow rate
+                const particleSize = Math.max(2, width * 0.3);
+                
+                // Add some randomness to particle position perpendicular to flow
+                const perpAngle = angle + Math.PI / 2;
+                const offsetDistance = (Math.random() - 0.5) * width * 0.6;
+                const offsetX = Math.cos(perpAngle) * offsetDistance;
+                const offsetY = Math.sin(perpAngle) * offsetDistance;
+                
+                // Draw particle
+                ctx.beginPath();
+                ctx.arc(x + offsetX, y + offsetY, particleSize, 0, Math.PI * 2);
+                ctx.fillStyle = '#4d94ff';
+                ctx.fill();
+                
+                // Add highlight to some particles for visual interest
+                if (Math.random() > 0.7) {
+                    ctx.beginPath();
+                    ctx.arc(x + offsetX, y + offsetY, particleSize * 0.5, 0, Math.PI * 2);
+                    ctx.fillStyle = '#a5c7ff';
+                    ctx.fill();
+                }
+            }
+        }
+    }
+    // Layout positions
+    const reservoirPositions = {
+        mangla: { x: 200, y: 200, radius: 100 },
+        tarbela: { x: 400, y: 200, radius: 100 },
+        chashma: { x: 600, y: 200, radius: 100 }
+    };
+
     // Canvas setup
     const canvas = document.getElementById('water-system-canvas');
     const ctx = canvas.getContext('2d');
-    let animationFrameId;
     let time = 0;
     
     // UI elements
@@ -14,6 +280,13 @@ document.addEventListener('DOMContentLoaded', function() {
     let waterSystemData = {};
     let sortedDates = [];
     let currentDateIndex = 0;
+    
+    // Visualization constants
+    const MAX_FLOW_SIZE = 10000; // Maximum flow in cusecs for scaling
+    const MIN_FLOW_WIDTH = 5;    // Minimum width of flow in pixels
+    const MAX_FLOW_WIDTH = 30;   // Maximum width of flow in pixels
+    const FLOW_SPEED = 2;        // Speed of flow animation
+    const FLOW_PARTICLE_DENSITY = 0.7; // Density of particles in the flow
     
     // Load all data files
     loadAllData().then(data => {
@@ -153,66 +426,52 @@ document.addEventListener('DOMContentLoaded', function() {
             ctx.font = '16px Arial';
             ctx.fillText(formatDate(date), canvas.width/2, 60);
         }
-        
+                
         // If we have data, use it to draw the reservoirs
         if (data && data.dams) {
             // Find reservoir data
             const mangla = data.dams.find(dam => dam.name === 'MANGLA');
-            const tarbela = data.dams.find(dam => dam.name === 'TARBELA');
-            const chashma = data.dams.find(dam => dam.name === 'CHASHMA');
+
+            // Create nodes
+            const manglaSourceNode = new Node('Mangla Source', reservoirPositions.mangla.x - 200, reservoirPositions.mangla.y, 30, true);
             
             // Draw Mangla reservoir
             if (mangla) {
-                drawReservoir(
-                    canvas.width / 2,
-                    canvas.height / 2,
-                    180,
-                    180,
+                // Create and draw Mangla reservoir
+                const manglaReservoir = new Reservoir(
+                    'Mangla Dam',
                     mangla.level_min_ft,
                     mangla.level_max_ft,
                     mangla.level_today_ft,
-                    'Mangla Dam'
+                    reservoirPositions.mangla.x,
+                    reservoirPositions.mangla.y,
+                    90 // radius (half of the original width)
                 );
-            } else {
-                drawReservoir(canvas.width / 2, canvas.height / 2, 180, 180, 1050, 1242, 1114, 'Mangla Dam');
-            }
-            
-            // Draw Tarbela reservoir
-            if (tarbela) {
-                drawReservoir(
-                    canvas.width / 4,
-                    canvas.height / 3,
-                    150,
-                    150,
-                    tarbela.level_min_ft,
-                    tarbela.level_max_ft,
-                    tarbela.level_today_ft,
-                    'Tarbela Dam'
+
+                // Create flow from source to reservoir
+                const manglaSourceFlow = new Flow(
+                    'Inflow',
+                    manglaSourceNode,
+                    manglaReservoir,
+                    mangla.inflow_upstream_cusecs || 1000,
+                    true
                 );
-            } else {
-                drawReservoir(canvas.width / 4, canvas.height / 3, 150, 150, 1380, 1550, 1450, 'Tarbela Dam');
-            }
-            
-            // Draw Chashma reservoir
-            if (chashma) {
-                drawReservoir(
-                    3 * canvas.width / 4,
-                    2 * canvas.height / 3,
-                    120,
-                    120,
-                    chashma.level_min_ft,
-                    chashma.level_max_ft,
-                    chashma.level_today_ft,
-                    'Chashma Barrage'
-                );
-            } else {
-                drawReservoir(3 * canvas.width / 4, 2 * canvas.height / 3, 120, 120, 638.15, 649, 642.5, 'Chashma Barrage');
+                
+                // Draw flow first (so it appears under the nodes)
+                manglaSourceFlow.draw();
+                
+                // Then draw nodes on top
+                manglaSourceNode.draw();
+                manglaReservoir.draw();
+
+                
             }
         } else {
-            // Fallback to dummy values if no data
-            drawReservoir(canvas.width / 2, canvas.height / 2, 180, 180, 1050, 1242, 1114, 'Mangla Dam');
-            drawReservoir(canvas.width / 4, canvas.height / 3, 150, 150, 1380, 1550, 1450, 'Tarbela Dam');
-            drawReservoir(3 * canvas.width / 4, 2 * canvas.height / 3, 120, 120, 638.15, 649, 642.5, 'Chashma Barrage');
+            // Display a message when no data is available
+            ctx.fillStyle = '#666';
+            ctx.font = '16px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('No water system data available for the selected date', canvas.width/2, canvas.height/2);
         }
     }
     
@@ -227,132 +486,17 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     /**
-     * Draw a reservoir with animated wavy water
-     * @param {number} x - Center x position
-     * @param {number} y - Center y position
-     * @param {number} width - Width of reservoir
-     * @param {number} height - Height of reservoir
-     * @param {number} minLevel - Minimum water level
-     * @param {number} maxLevel - Maximum water level
-     * @param {number} currentLevel - Current water level
-     * @param {string} name - Name of the reservoir
+     * Animation loop
      */
-    function drawReservoir(x, y, width, height, minLevel, maxLevel, currentLevel, name) {
-        // Calculate the relative water level (0 to 1)
-        const levelPercentage = (currentLevel - minLevel) / (maxLevel - minLevel);
-        
-        // Use the smaller dimension to ensure a perfect circle
-        const diameter = Math.min(width, height);
-        const radius = diameter / 2;
-        
-        // Draw reservoir container (circle)
-        ctx.fillStyle = '#d4d4d4'; // Light gray for container
-        ctx.strokeStyle = '#666';
-        ctx.lineWidth = 2;
-        
-        // Draw circle for reservoir
-        ctx.beginPath();
-        ctx.arc(x, y, radius, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.stroke();
-        
-        // Draw water in reservoir with wavy top
-        drawCircularWater(x, y, radius, levelPercentage);
-        
-        // Draw reservoir name
-        ctx.fillStyle = '#000';
-        ctx.font = 'bold 16px Arial';
-        ctx.textAlign = 'center';
-        ctx.fillText(name, x, y - radius - 15);
-        
-        // Draw percentage
-        ctx.textAlign = 'center';
-        ctx.fillStyle = '#0066cc';
-        ctx.font = 'bold 18px Arial';
-        ctx.fillText(`${Math.round(levelPercentage * 100)}%`, x, y);
-    }
-    
-    // Removed drawRoundedRect function as we're using circles now
-    
-    /**
-     * Draw water with wavy top in the circular reservoir
-     */
-    function drawCircularWater(x, y, radius, fillPercentage) {
-        ctx.fillStyle = '#4d94ff'; // Water blue color
-        
-        // Calculate the water level position
-        // For a circle, we need to convert percentage to a y-position
-        // 0% = bottom of circle (y + radius)
-        // 100% = top of circle (y - radius)
-        
-        // Calculate the y position based on percentage (0 to 1)
-        // This maps the percentage to a position in the circle
-        const waterLevel = y + radius - (2 * radius * fillPercentage);
-        
-        // Only proceed if water level is within the circle
-        if (waterLevel >= y + radius) return; // Empty
-        if (waterLevel <= y - radius) {
-            // Full circle
-            ctx.beginPath();
-            ctx.arc(x, y, radius, 0, Math.PI * 2);
-            ctx.fill();
-            return;
-        }
-        
-        // Calculate chord width at the water level
-        const chordWidth = 2 * Math.sqrt(radius * radius - Math.pow(waterLevel - y, 2));
-        const halfChordWidth = chordWidth / 2;
-        
-        ctx.beginPath();
-        
-        // Draw the bottom part of the circle (the filled part)
-        const startAngle = Math.asin((waterLevel - y) / radius);
-        const endAngle = Math.PI - Math.asin((waterLevel - y) / radius);        
-        ctx.arc(x, y, radius, startAngle, endAngle);
-        
-        // Wavy water surface (left to right)
-        const waveHeight = 4;
-        const waveCount = 6;
-        const waveWidth = chordWidth / waveCount;
-        
-        // Starting point for waves (leftmost point of the chord)
-        const startX = x - halfChordWidth;
-        
-        // Create wavy water surface
-        ctx.lineTo(startX, waterLevel);
-        
-        for (let i = 0; i < waveCount; i++) {
-            const waveX = startX + (i * waveWidth);
-            const nextWaveX = startX + ((i + 1) * waveWidth);
-            
-            // Calculate wave offset based on time for animation
-            const offset = Math.sin(time + i) * waveHeight;
-            
-            // Draw a wave segment
-            ctx.quadraticCurveTo(
-                waveX + waveWidth/2, waterLevel + offset,
-                nextWaveX, waterLevel
-            );
-        }
-        
-        ctx.closePath();
-        ctx.fill();
-    }
-    
-    // Animation loop
     function animate() {
         time += 0.05;
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        requestAnimationFrame(animate);
         
         // Use the current date's data for animation frames
         if (sortedDates.length > 0) {
             const currentDate = sortedDates[currentDateIndex];
             drawCanvas(currentDate, waterSystemData[currentDate]);
-        } else {
-            drawCanvas();
         }
-        
-        animationFrameId = requestAnimationFrame(animate);
     }
     
     // Start animation

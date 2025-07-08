@@ -66,6 +66,8 @@ canvas {
     width: 100%;
     margin: 10px 0;
     -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
     height: 10px;
     border-radius: 5px;
     background: #d3d3d3;

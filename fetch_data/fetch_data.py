@@ -7,6 +7,7 @@ import requests
 import tempfile
 import re
 from datetime import datetime, timedelta
+import glob
 
 
 openai.api_key = os.getenv("OPENAI_API_KEY")  # Replace with your API key
@@ -145,22 +146,31 @@ def iterate_through_urls(url_list, output_dir):
             print(f"Failed to process {url}: {e}")
 
 
-start_date = datetime(2025, 1, 8)
-step_days = 7
-end_date = datetime.today()
+def populate_file_list():
+    files = glob.glob("./public/data/*.json")
+    files = [os.path.basename(f) for f in files if os.path.basename(f) != "file_list.json"]
+    file_output = {
+        "files": files
+    }
+    
+    with open("./public/data/file_list.json", "w") as f:
+        json.dump(file_output, f, indent=4)
+    
 
-date = start_date
-urls = []
-while date < end_date:
-    urls.append(f'https://irrigation.sindh.gov.pk/files/Flows/IndusRiver/IMG-{date.strftime("%Y%m%d")}-web08042022.png')
-    date += timedelta(days=step_days)
+# start_date = datetime(2025, 1, 8)
+# step_days = 7
+# end_date = datetime.today()
 
-print(urls[0:5])
+# date = start_date
+# urls = []
+# while date < end_date:
+#     urls.append(f'https://irrigation.sindh.gov.pk/files/Flows/IndusRiver/IMG-{date.strftime("%Y%m%d")}-web08042022.png')
+#     date += timedelta(days=step_days)
 
-iterate_through_urls(urls, "./public/data")
+# print(urls[0:5])
 
-## Write file list
-with open("./public/data/file_list.txt", "w") as f:
-    for url in urls:
-        f.write(url + "\n")
+# iterate_through_urls(urls, "./public/data")
+
+populate_file_list()
+
     
