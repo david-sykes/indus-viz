@@ -165,11 +165,10 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         draw() {
-            // Draw flow as a line with particles
-            const flowWidth = Math.max(
-                MIN_FLOW_WIDTH, 
-                Math.min(MAX_FLOW_WIDTH, (this.flowRate / MAX_FLOW_SIZE) * MAX_FLOW_WIDTH)
-            );
+            // Draw flow as a line with particles - linear scaling based on flow rate
+            // Scale factor converts flow rate to pixels (adjust FLOW_SCALE_FACTOR as needed)
+            const FLOW_SCALE_FACTOR = 0.001; // pixels per cusec
+            const flowWidth = this.flowRate * FLOW_SCALE_FACTOR;
             
             // Calculate start and end points of the flow (from center to center)
             const startX = this.sourceNode.x;
@@ -226,6 +225,9 @@ document.addEventListener('DOMContentLoaded', function() {
             // Calculate particle speed based on flow rate
             const particleSpeed = FLOW_SPEED * normalizedFlowRate;
             
+            // Fixed particle size regardless of flow width
+            const PARTICLE_SIZE = 3;
+            
             // Draw particles
             for (let i = 0; i < particleCount; i++) {
                 // Calculate position along the flow line (0 to 1)
@@ -235,25 +237,22 @@ document.addEventListener('DOMContentLoaded', function() {
                 const x = startX + (endX - startX) * position;
                 const y = startY + (endY - startY) * position;
                 
-                // Calculate particle size based on flow rate
-                const particleSize = Math.max(2, width * 0.3);
-                
                 // Add some randomness to particle position perpendicular to flow
                 const perpAngle = angle + Math.PI / 2;
                 const offsetDistance = (Math.random() - 0.5) * width * 0.6;
                 const offsetX = Math.cos(perpAngle) * offsetDistance;
                 const offsetY = Math.sin(perpAngle) * offsetDistance;
                 
-                // Draw particle
+                // Draw particle with fixed size
                 ctx.beginPath();
-                ctx.arc(x + offsetX, y + offsetY, particleSize, 0, Math.PI * 2);
+                ctx.arc(x + offsetX, y + offsetY, PARTICLE_SIZE, 0, Math.PI * 2);
                 ctx.fillStyle = '#4d94ff';
                 ctx.fill();
                 
                 // Add highlight to some particles for visual interest
                 if (Math.random() > 0.7) {
                     ctx.beginPath();
-                    ctx.arc(x + offsetX, y + offsetY, particleSize * 0.5, 0, Math.PI * 2);
+                    ctx.arc(x + offsetX, y + offsetY, PARTICLE_SIZE * 0.5, 0, Math.PI * 2);
                     ctx.fillStyle = '#a5c7ff';
                     ctx.fill();
                 }
@@ -262,9 +261,10 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     // Layout positions
     const reservoirPositions = {
-        mangla: { x: 200, y: 200, radius: 100 },
-        tarbela: { x: 400, y: 200, radius: 100 },
-        chashma: { x: 600, y: 200, radius: 100 }
+        mangla: { x: 300, y: 600, radius: 50 },
+        tarbela: { x: 400, y: 400, radius: 50 },
+        chashma: { x: 800, y: 400, radius: 30 },
+        kabul: { x: 600, y: 400, radius: 5}
     };
 
     // Canvas setup
@@ -282,9 +282,7 @@ document.addEventListener('DOMContentLoaded', function() {
     let currentDateIndex = 0;
     
     // Visualization constants
-    const MAX_FLOW_SIZE = 10000; // Maximum flow in cusecs for scaling
-    const MIN_FLOW_WIDTH = 5;    // Minimum width of flow in pixels
-    const MAX_FLOW_WIDTH = 30;   // Maximum width of flow in pixels
+    const MAX_FLOW_SIZE = 100000; // Maximum flow in cusecs for scaling (used for particle count)
     const FLOW_SPEED = 2;        // Speed of flow animation
     const FLOW_PARTICLE_DENSITY = 0.7; // Density of particles in the flow
     
@@ -431,49 +429,130 @@ document.addEventListener('DOMContentLoaded', function() {
         if (data && data.dams) {
             // Find reservoir data
             const mangla = data.dams.find(dam => dam.name === 'MANGLA');
+            const tarbela = data.dams.find(dam => dam.name === 'TARBELA');
+            const chashma = data.dams.find(dam => dam.name === 'CHASHMA');
+            const kabul = data.dams.find(dam => dam.name === 'KABUL');
+                        
+            // Create reservoirs
 
-            // Create nodes
-            const manglaSourceNode = new Node('Mangla Source', reservoirPositions.mangla.x - 200, reservoirPositions.mangla.y, 30, true);
+            const manglaReservoir = new Reservoir(
+                'Mangla Dam',
+                mangla.level_min_ft,
+                mangla.level_max_ft,
+                mangla.level_today_ft,
+                reservoirPositions.mangla.x,
+                reservoirPositions.mangla.y,
+                reservoirPositions.mangla.radius
+            );
+
+            const tarbelaReservoir = new Reservoir(
+                'Tarbela Dam',
+                tarbela.level_min_ft,
+                tarbela.level_max_ft,
+                tarbela.level_today_ft,
+                reservoirPositions.tarbela.x,
+                reservoirPositions.tarbela.y,
+                reservoirPositions.tarbela.radius
+            );
+
+            const chashmaReservoir = new Reservoir(
+                'Chashma Dam',
+                chashma.level_min_ft,
+                chashma.level_max_ft,
+                chashma.level_today_ft,
+                reservoirPositions.chashma.x,
+                reservoirPositions.chashma.y,
+                reservoirPositions.chashma.radius
+            );
+
+            // Create any extra nodes
+            const manglaSourceNode = new Node('Mangla Source', reservoirPositions.mangla.x - 200, reservoirPositions.mangla.y, 5, true);
+            const tarbelaSourceNode = new Node('Tarbela Source', reservoirPositions.tarbela.x - 200, reservoirPositions.tarbela.y, 5, true);
+            const kabulEntryNode = new Node('Kabul Entry', reservoirPositions.kabul.x, reservoirPositions.kabul.y, reservoirPositions.kabul.radius, true);
+            const kabulSourceNode = new Node('Kabul Source', reservoirPositions.kabul.x - 100, reservoirPositions.kabul.y - 200, 5, true);
+            const chashmaSinkNode = new Node('Chashma Sink', reservoirPositions.chashma.x + 100, reservoirPositions.chashma.y, 5, true);
+            // Create flows
+            const manglaSourceFlow = new Flow(
+                'Inflow',
+                manglaSourceNode,
+                manglaReservoir,
+                mangla.inflow_upstream_cusecs || 1000,
+                true
+            );
+
+            const tarbelaSourceFlow = new Flow(
+                'Tbla src',
+                tarbelaSourceNode,
+                tarbelaReservoir,
+                tarbela.inflow_upstream_cusecs || 1000,
+                true
+            );
+
+            const tarbelaKabulFlow = new Flow(
+                'Tbla out',
+                tarbelaReservoir,
+                kabulEntryNode,
+                tarbela.outflow_downstream_cusecs || 1000,
+                true
+            );
+
+            const tarbelaManglaFlow = new Flow(
+                'Inflow',
+                tarbelaSourceNode,
+                manglaReservoir,
+                tarbela.inflow_upstream_cusecs || 1000,
+                true
+            );
+
+            const kabulSourceFlow = new Flow(
+                'Inflow',
+                kabulSourceNode,
+                kabulEntryNode,
+                kabul.inflow_upstream_cusecs || 1000,
+                true
+            );
+
+            const kabulChasmaFlow = new Flow(
+                'Chasma in',
+                kabulEntryNode,
+                chashmaReservoir,
+                chashma.inflow_upstream_cusecs || 1000,
+                true
+            )
+
+            const chashmaOutFlow = new Flow(
+                'Chasma out',
+                chashmaReservoir,
+                chashmaSinkNode,
+                chashma.outflow_downstream_cusecs || 1000,
+                true
+            )
+
+            // const kabulChasmaFlow
+                
+            // Draw flow first (so it appears under the nodes)
+            manglaSourceFlow.draw();
+            tarbelaSourceFlow.draw();
+            tarbelaKabulFlow.draw();
+            kabulSourceFlow.draw();
+            kabulChasmaFlow.draw();
+            chashmaOutFlow.draw();
             
-            // Draw Mangla reservoir
-            if (mangla) {
-                // Create and draw Mangla reservoir
-                const manglaReservoir = new Reservoir(
-                    'Mangla Dam',
-                    mangla.level_min_ft,
-                    mangla.level_max_ft,
-                    mangla.level_today_ft,
-                    reservoirPositions.mangla.x,
-                    reservoirPositions.mangla.y,
-                    90 // radius (half of the original width)
-                );
+            // Then draw nodes on top
+            manglaSourceNode.draw();
+            tarbelaSourceNode.draw();
+            tarbelaReservoir.draw();
+            chashmaReservoir.draw();
+            kabulEntryNode.draw();
+            kabulSourceNode.draw();
+            manglaReservoir.draw();
+            chashmaSinkNode.draw();
 
-                // Create flow from source to reservoir
-                const manglaSourceFlow = new Flow(
-                    'Inflow',
-                    manglaSourceNode,
-                    manglaReservoir,
-                    mangla.inflow_upstream_cusecs || 1000,
-                    true
-                );
-                
-                // Draw flow first (so it appears under the nodes)
-                manglaSourceFlow.draw();
-                
-                // Then draw nodes on top
-                manglaSourceNode.draw();
-                manglaReservoir.draw();
-
+            
                 
             }
-        } else {
-            // Display a message when no data is available
-            ctx.fillStyle = '#666';
-            ctx.font = '16px Arial';
-            ctx.textAlign = 'center';
-            ctx.fillText('No water system data available for the selected date', canvas.width/2, canvas.height/2);
         }
-    }
+
     
     // Format date for display
     function formatDate(dateStr) {

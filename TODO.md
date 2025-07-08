@@ -1,4 +1,5 @@
-1. Script to fetch a single png and unpack
-2. Figure out best storage format
-3. Script to fetch whole year of pngs and unpack
-4. Create webpage
+1. Make Chasma Dam into a barrage with outflows
+2. Plumb in links between mangla and Tarbela routes
+3. Add Sindh downstream
+4. Fix the data issue
+5. Make flow laels nicer (just volumes and clevre positioning)
